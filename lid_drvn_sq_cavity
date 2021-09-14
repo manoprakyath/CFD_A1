@@ -1,0 +1,145 @@
+#include<stdio.h>
+#include<math.h>
+#include<stdlib.h>
+#define Re 400          //Reynolds Number
+#define U 1             //Horizontal Velocity of the Lid
+#define Nx 129
+#define Ny 129
+#define emax 0.00001        //Error Limit
+
+
+int main()
+{
+    double dx,dy,errn,errd,err;
+    int count=0;
+    dx=pow((Nx-1),-1);
+    dy=pow((Nx-1),-1);
+    double b=dx/dy,sum1=0;
+    double w[Ny][Nx],wp[Ny][Nx],S[Ny][Nx],Sp[Ny][Nx];
+    double u[Ny][Nx],v[Ny][Nx],X[Nx],Y[Ny];
+
+    int n=1;                // Inner Iteration limit for Omega
+    int N=1;                // Inner Iteration limit for Shi
+
+    FILE *fpw1,*fpw2;
+    fpw1=fopen("Shi.txt","w");          //Text file to store the Contour Plotting data of Streamlines
+    fpw2=fopen("U_V_vel.txt","w");      //Text file to store the Centerline Velocities
+
+    for(int i=0;i<Nx;i++)           // Initial guess for S(Shi), w(Omega), u (Horizontal Velocity Component), v (Vertical Velocity Component)
+    {
+        for(int j=0;j<Ny;j++)
+        {
+            S[j][i]=0;
+            w[j][i]=0;
+            wp[j][i]=0;
+            u[j][i]=0;
+            v[j][i]=0;
+        }
+    }
+    for(int i=1;i<Ny-1;i++)       // Initial guess for w
+    {
+        w[Ny-1][i]=-(2*U/dy);
+        wp[Ny-1][i]=-(2*U/dy);
+    }
+
+
+do
+{
+    errn=0;     //Numerator Error Component
+    errd=0;     // Denominator Error Component
+     for(int j=0;j<Ny;j++)
+    {
+        for(int i=0;i<Nx;i++)
+        {
+            wp[j][i]=w[j][i];
+
+        }
+    }
+
+    for(int k=0;k<N;k++)   // Loop to carry out Inner Iterations of Shi
+    {
+    for(int j=1;j<Ny-1;j++)
+    {
+        for(int i=1;i<Nx-1;i++)
+        {
+            S[j][i]=(S[j][i+1]+S[j][i-1]+(b*b)*(S[j+1][i]+S[j-1][i])+(dx*dx)*w[j][i])/(2*(1+pow(b,2)));
+        }
+    }
+    }
+
+    for(int j=1;j<Nx-1;j++)                     //Setting the Boundary Conditions for Omega
+    {
+        w[j][0]=-(2*S[j][1])/pow(dx,2);
+        w[j][Nx-1]=-(2*S[j][Nx-2])/pow(dx,2);
+    }
+    for(int i=1;i<Nx-1;i++)
+    {
+        w[0][i]=-(2*S[1][i])/pow(dy,2);
+        w[Ny-1][i]=-(2*S[Ny-2][i]+2*dy*U)/pow(dy,2);
+    }
+
+    for(int k=0;k<n;k++)        // Loop to carry out Inner Iterations of Omega
+    {
+    for(int j=1;j<Ny-1;j++)
+    {
+        for(int i=1;i<Nx-1;i++)
+        {
+            w[j][i]=(w[j][i+1]+w[j][i-1]+(b*b)*(w[j+1][i]+w[j-1][i])-(0.25*Re*b*(w[j][i+1]-w[j][i-1])*(S[j+1][i]-S[j-1][i]))+(0.25*Re*b*(w[j+1][i]-w[j-1][i])*(S[j][i+1]-S[j][i-1])))/(2*(1+pow(b,2)));
+        }
+    }
+    }
+
+    for(int j=0;j<Ny;j++)
+    {
+        for(int i=0;i<Nx;i++)
+        {
+            errn=errn+fabs(w[j][i]-wp[j][i]);
+            errd=errd+fabs(wp[j][i]);
+        }
+    }
+    err=errn/errd ;
+    count++;
+}while(err>emax);
+
+
+    printf("\n\n\t No. of Iterations:\t%d\n\n",count);   //Prints The Iteration Number
+
+    for(int j=1;j<Ny-1;j++)
+        {
+            for(int i=1;i<Nx-1;i++)
+            {
+                u[j][i]=(S[j+1][i]-S[j-1][i])/(2*dx);               // Calculation of Velocities using Stream Function
+                v[j][i]=-1*(S[j][i+1]-S[j][i-1])/(2*dy);
+            }
+        }
+    for(int i=0;i<Ny;i++)
+    {
+        u[Ny-1][i]=U;            //Velocity of the Top most layer(Wall)
+    }
+
+    for(int i=0;i<Nx;i++)      //Grid Points
+    {
+
+        X[i]=sum1;
+        Y[i]=sum1;
+        sum1=sum1+dx;
+    }
+
+
+    for(int j=0;j<Ny;j++)      // Data for plotting the Contour
+    {
+        for(int i=0;i<Nx;i++)
+        {
+            fprintf(fpw1,"%3.8f\t%3.8f\t%3.8f\n",X[i],Y[j],S[j][i]);
+        }
+    }
+
+    for(int i=0;i<Nx;i++)     // Printing the Centerline Velocities of u,v for plotting and tabulation
+    {
+        fprintf(fpw2,"\t%3.8f\t%3.8f\n",u[i][64],v[64][i]);
+    }
+
+    fclose(fpw1);
+    fclose(fpw2);
+    return 0;
+}
